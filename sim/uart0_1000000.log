@@ -1,0 +1,5 @@
+=== THEJAS32 Embassy Async + SPI/I2C HAL ===
+[SPI0] TX=[0xAA, 0x55] -> RX=[0x55, 0xAA]
+[I2C0] MPU6050 WHO_AM_I = 0x68
+[I2C0] SSD1306 Display ON packet sent
+=== All Async Tasks & Drivers Verified ===

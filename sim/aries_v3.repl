@@ -1,0 +1,37 @@
+cpu: CPU.RiscV32 @ sysbus
+    cpuType: "rv32im_zicsr"
+    privilegedArchitecture: PrivilegedArchitecture.Priv1_10
+    timeProvider: clint
+
+clint: IRQControllers.CoreLevelInterruptor @ sysbus 0x02000000
+    frequency: 1000000
+    [0, 1] -> cpu@[3, 7]
+
+flash: Memory.MappedMemory @ sysbus 0x00000000
+    size: 0x00200000
+
+sram: Memory.MappedMemory @ sysbus 0x00200000
+    size: 0x00040000
+
+uart0: UART.NS16550 @ sysbus 0x10000100
+    wideRegisters: true
+
+spi0: Miscellaneous.Thejas32Spi @ sysbus 0x10000200
+
+i2c0: Miscellaneous.Thejas32I2c @ sysbus 0x10000300
+
+gpio0: Miscellaneous.Thejas32Gpio @ sysbus 0x10080000
+
+
+
+
+
+
+
+
+
+
+
+
+
+

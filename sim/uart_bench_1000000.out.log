@@ -1,0 +1,15 @@
+[06:44:17.3070] [INFO] Loaded monitor commands from: F:\tools\renode\renode_1.17.0+20261117git8e500459a-portable\scripts/monitor.py
+Renode, version 1.17.0 (1.17.0+20261117git8e500459a)
+
+(monitor) i @F:\vega-thejas32\sim\uart_bench_runner.resc
+[06:44:17.6311] [INFO] Including script(s): F:\vega-thejas32\sim\uart_bench_runner.resc
+[06:44:17.6546] [INFO] System bus created.
+[06:44:20.7024] [INFO] sysbus: Loading block of 12600 bytes length at 0x200000.
+[06:44:20.7175] [INFO] sysbus: Loading block of 1860 bytes length at 0x203138.
+[06:44:20.7176] [INFO] sysbus: Loading block of 80 bytes length at 0x203880.
+[06:44:20.7176] [INFO] sysbus: Loading block of 247600 bytes length at 0x2038D0.
+[06:44:20.7464] [INFO] cpu: Setting PC value to 0x200000.
+[06:44:20.8653] [INFO] ARIES_v3: Machine started.
+[06:44:23.8007] [INFO] ARIES_v3: Machine paused.
+Renode is quitting
+[06:44:23.8401] [INFO] ARIES_v3: Disposed.

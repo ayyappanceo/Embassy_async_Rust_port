@@ -1,0 +1,6 @@
+mach create "ARIES_v3"
+include @F:/vega-thejas32/sim/Thejas32Peripherals.cs
+machine LoadPlatformDescription @F:/vega-thejas32/sim/aries_v3.repl
+showAnalyzer sysbus.uart0
+sysbus LoadELF @F:/vega-thejas32/firmware-demo/target/riscv32i-unknown-none-elf/release/firmware-demo
+start

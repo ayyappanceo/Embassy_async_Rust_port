@@ -1,0 +1,6 @@
+﻿target/
+**/*.rs.bk
+*.swp
+.DS_Store
+sim/*.log
+!sim/uart0_*.log

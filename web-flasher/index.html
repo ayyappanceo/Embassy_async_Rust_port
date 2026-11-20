@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ARIES v3.0 (THEJAS32) WebSerial XMODEM-CRC Flasher</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #0d1117; color: #e6edf3; max-width: 780px; margin: 2rem auto; padding: 0 1rem; }
+  h1 { color: #58a6ff; font-size: 1.4rem; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.25rem; margin-bottom: 1rem; }
+  button { background: #238636; color: #fff; border: none; padding: 0.6rem 1.1rem; border-radius: 6px; font-weight: 600; cursor: pointer; margin-right: 0.5rem; }
+  button:disabled { background: #30363d; cursor: not-allowed; }
+  button.secondary { background: #1f6feb; }
+  progress { width: 100%; height: 18px; margin-top: 0.75rem; }
+  pre { background: #010409; border: 1px solid #30363d; padding: 0.9rem; border-radius: 6px; height: 240px; overflow-y: auto; font-size: 0.85rem; color: #7ee787; }
+</style>
+</head>
+<body>
+  <h1>C-DAC ARIES v3.0 (THEJAS32) ? Browser XMODEM-CRC Flasher</h1>
+  <div class="card">
+    <p>1. Set BOOT-SEL jumper (J12) on ARIES v3.0 and connect USB Type-C (UART0 @ 115200 baud).</p>
+    <input type="file" id="binFile" accept=".bin,.elf" />
+    <br><br>
+    <button id="btnConnect">1. Connect UART0 (WebSerial)</button>
+    <button id="btnFlash" class="secondary" disabled>2. Flash via XMODEM-CRC</button>
+    <button id="btnSimTest" class="secondary">Self-Test XMODEM-CRC Framing</button>
+    <progress id="prog" value="0" max="100"></progress>
+  </div>
+  <pre id="log">Ready. Select firmware .bin file and click Connect UART0 (or run Self-Test).</pre>
+
+<script>
+const SOH = 0x01, EOT = 0x04, ACK = 0x06, NAK = 0x15, CAN = 0x18, CRC_REQ = 0x43;
+let port, reader, writer;
+
+function log(msg) {
+  const el = document.getElementById('log');
+  el.textContent += '\n' + msg;
+  el.scrollTop = el.scrollHeight;
+}
+
+function crc16Xmodem(buf) {
+  let crc = 0x0000;
+  for (let i = 0; i < buf.length; i++) {
+    crc ^= (buf[i] << 8);
+    for (let j = 0; j < 8; j++) {
+      crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xFFFF : (crc << 1) & 0xFFFF;
+    }
+  }
+  return crc;
+}
+
+function buildXmodemPackets(firmwareBytes) {
+  const totalPackets = Math.ceil(firmwareBytes.length / 128);
+  const packets = [];
+  for (let seq = 1; seq <= totalPackets; seq++) {
+    const payload = new Uint8Array(128).fill(0x1A); // CP/M EOF padding
+    const slice = firmwareBytes.subarray((seq - 1) * 128, seq * 128);
+    payload.set(slice);
+    const crc = crc16Xmodem(payload);
+    const pkt = new Uint8Array(133);
+    pkt[0] = SOH;
+    pkt[1] = seq & 0xFF;
+    pkt[2] = (~seq) & 0xFF;
+    pkt.set(payload, 3);
+    pkt[131] = (crc >> 8) & 0xFF;
+    pkt[132] = crc & 0xFF;
+    packets.push(pkt);
+  }
+  return packets;
+}
+
+async function readByte(timeoutMs = 5000) {
+  const timer = setTimeout(() => reader.cancel(), timeoutMs);
+  const { value, done } = await reader.read();
+  clearTimeout(timer);
+  if (done || !value || value.length === 0) throw new Error("UART read timeout");
+  return value[0];
+}
+
+document.getElementById('btnConnect').onclick = async () => {
+  if (!('serial' in navigator)) return log("ERROR: WebSerial requires Chrome or Edge.");
+  port = await navigator.serial.requestPort();
+  await port.open({ baudRate: 115200, dataBits: 8, stopBits: 1, parity: 'none' });
+  writer = port.writable.getWriter();
+  reader = port.readable.getReader();
+  document.getElementById('btnFlash').disabled = false;
+  log("Connected to UART0 @ 115200 8N1.");
+};
+
+document.getElementById('btnFlash').onclick = async () => {
+  const file = document.getElementById('binFile').files[0];
+  if (!file) return log("Select a compiled firmware .bin file first.");
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const packets = buildXmodemPackets(bytes);
+  log(`Loaded ${bytes.length} bytes (${packets.length} XMODEM-CRC blocks). Waiting for THEJAS32 'C' handshake...`);
+
+  let handshake = 0;
+  while (handshake !== CRC_REQ && handshake !== NAK) {
+    handshake = await readByte(10000);
+  }
+  log(`Bootloader handshake received: 0x${handshake.toString(16).toUpperCase()}`);
+
+  const prog = document.getElementById('prog');
+  prog.max = packets.length;
+
+  for (let i = 0; i < packets.length; i++) {
+    let retries = 0;
+    while (retries < 10) {
+      await writer.write(packets[i]);
+      const resp = await readByte(3000);
+      if (resp === ACK) break;
+      retries++;
+      log(`Block ${i + 1} NAK/retry (${retries}/10)...`);
+    }
+    prog.value = i + 1;
+  }
+
+  await writer.write(new Uint8Array([EOT]));
+  const finalResp = await readByte(3000);
+  log(finalResp === ACK ? "SUCCESS: Firmware flashed & ACKed by THEJAS32 bootloader!" : `Unexpected EOT response: 0x${finalResp.toString(16)}`);
+};
+
+document.getElementById('btnSimTest').onclick = () => {
+  const sample = new TextEncoder().encode("THEJAS32_XMODEM_TEST_PAYLOAD");
+  const packets = buildXmodemPackets(sample);
+  const crc = (packets[0][131] << 8) | packets[0][132];
+  document.getElementById('prog').value = 100;
+  log(`[SELF-TEST] Built ${packets.length} packet (133B) | SOH=0x${packets[0][0].toString(16)} SEQ=${packets[0][1]} ~SEQ=0x${packets[0][2].toString(16)} CRC16=0x${crc.toString(16).toUpperCase()}`);
+};
+</script>
+</body>
+</html>
